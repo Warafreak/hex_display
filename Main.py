@@ -16,12 +16,15 @@ import numpy as np
 import LED
 import pandas as pd
 import fixedsizes as fx
+import pickle
+import lirc
 
 # Array zum Speichern der Positionen innerhalb eines Jobs
 Job_Matrix = np.zeros((fx.DISPLAY_Y,fx.DISPLAY_X),dtype=int)
 #erzeuge Liste mit Jobs, zunächst das erste Element
 Jobs = [LED.JOB()]
 Jobs_Pending = []
+
 
 #Jobs = []
 
@@ -78,10 +81,8 @@ def Get_Pattern(Job_List):
     return Array.shape[0]    
 
 def main(win):
-    global Brightness, Job_Matrix, Jobs
+    global Brightness, Job_Matrix, Jobs, Render
 
-    # Starten Hintergrund-Update
-    t1 = LED.Update(0.1, Jobs)
     Brightness = 100
      #initialisieren GPIO's und LED's
     LED.Init_Panel()
@@ -193,40 +194,65 @@ def main(win):
                 elif (str(key) == "a"):
                     LED.Blank_Panel(False)
                     win.addstr("\nAdressing Shadow")
-                    while 1:
-                        # Bestehende Jobliste löschen
-                        while len(Jobs)>0:
-                            Jobs.pop()
-                        # Liste mit Pending Jobs laden
+                    # Bestehende Jobliste löschen
+                    while len(Jobs)>0:
+                        Jobs.pop()
+                    # Liste mit Pending Jobs laden
+                    try:
+                        FileAge = os.path.getmtime("Pattern.xlsm")
+                    except Exception as e:
+                        pass
+                    Count = Get_Pattern(Jobs_Pending)       # Lädt die Jobs aus dem Excel file in eine Warteliste, gibt die Anzahl der geladenen Jobs zurück
+                    Next_Job_Index = 0      #Zeiger auf den nächsten Job 
+                    #Hauptschleife zum Einfügen der Pending-Jobs in die aktive Jobliste
+                    Jobs.append(Jobs_Pending[Next_Job_Index])    # ersten Job laden
+
+                    # Starten Hintergrund-Rendering
+                    try:
+                        Render = np.zeros(960,dtype=int)
+                        t1 = LED.Update(0.1, Jobs, Render)
+                    except Exception as e:
+                        win.addstr("\nFehler Start T1: ")
+                        win.addstr(str(e.args))    
+                    
+                    Next_Job_Index += 1
+                    try:
+                        while Next_Job_Index < Count:        # alle weiteren Jobs laden, solange noch welche da sind
+                            while Jobs[-1].Next_Job_Due_In > Jobs[-1].Cycles_Elapsed:       # Neuen Job dann laden, wenn der Job davor es anzeigt
+                                time.sleep(0.1)
+                            Jobs.append(Jobs_Pending[Next_Job_Index])    # nächsten Job laden
+                            Next_Job_Index += 1
+                            #print("\nNeuer Job geladen: " + str(Next_Job_Index) + ", " + str(len(Jobs)))
+                    except Exception as e:
+                        win.addstr("\nFehler Jobzuordnung: ")
+                        win.addstr(str(e.args))    
+                    while len(Jobs)>0:              #Warten, bis HIntergrundroutine alle Jobs erledigt und aus Liste gelöscht hat
                         try:
-                            FileAge = os.path.getmtime("Pattern.xlsm")
-                        except Exception as e:
-                            pass
-                        Count = Get_Pattern(Jobs_Pending)       # Lädt die Jobs aus dem Excel file in eine Warteliste, gibt die Anzahl der geladenen Jobs zurück
-                        Next_Job_Index = 0      #Zeiger auf den nächsten Job 
-                        #Hauptschleife zum Einfügen der Pending-Jobs in die aktive Jobliste
-                        Jobs.append(Jobs_Pending[Next_Job_Index])    # ersten Job laden
-                        Next_Job_Index += 1
-                        try:
-                            while Next_Job_Index < Count:        # alle weiteren Jobs laden, solange noch welche da sind
-                                while Jobs[-1].Next_Job_Due_In > Jobs[-1].Cycles_Elapsed:       # Neuen Job dann laden, wenn der Job davor es anzeigt
-                                    time.sleep(0.1)
-                                Jobs.append(Jobs_Pending[Next_Job_Index])    # nächsten Job laden
-                                Next_Job_Index += 1
-                                #print("\nNeuer Job geladen: " + str(Next_Job_Index) + ", " + str(len(Jobs)))
-                        except Exception as e:
-                            win.addstr("\nFehler Jobzuordnung: ")
-                            win.addstr(str(e.args))    
-                        while len(Jobs)>0:              #Warten, bis HIntergrundroutine alle Jobs erledigt und aus Liste gelöscht hat
-                            time.sleep(0.1)
-                            try:
-                                if FileAge != os.path.getmtime("Pattern.xlsm"):
-                                    break
-                            except Exception as e:
+                            if FileAge != os.path.getmtime("Pattern.xlsm"):
                                 break
-                        
+                        except Exception as e:
+                            break                       
                     # Fertig.
                     
+
+                elif (str(key) == "r"):     #Wiedergeben gerenderter Frames
+                    LED.Blank_Panel(False)
+                    win.addstr("\nShow Frames")
+                    Render = 0
+                    f=open('test.rnd','rb')
+                    Render = pickle.load(f)
+                    f.close
+                    Form = np.shape(Render)
+                    Render.shape = (int(Form[0]/960),960)
+                    Form = np.shape(Render)
+                    LengthFrame = Form[1]
+                    NumberFrames =Form[0]
+                    for FrameCount in range(0,NumberFrames):
+                        #Frame = Render[FrameCount]
+                        for FrameAdress in range(0,LengthFrame):
+                            LED.tlc5947[FrameAdress]=Render[FrameCount,FrameAdress]
+                        LED.tlc5947.write()
+                        
             except Exception as e:
                 win.addstr("\nFehler innen")
                 win.addstr(str(e.args))
@@ -235,6 +261,16 @@ def main(win):
         win.addstr("\nFehler aussen")
         win.addstr(str(e.args))
 
-curses.wrapper(main)
+def led_menu():
+    selected_panel = 0
+
+sockid=lirc.init("appleremote", blocking = False)
+while True:
+    codeIR = lirc.nextcode()
+    if codeIR != []:
+        print(codeIR[0])
+    time.sleep(0.05)                
+
+#curses.wrapper(main)
 
 #EOF

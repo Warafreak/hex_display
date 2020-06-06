@@ -13,6 +13,7 @@ import threading
 from math import sin , cos, pi, sqrt, atan2
 import fixedsizes as fx
 import array_builder as ab
+import pickle
 
 #Debug-Flag erlaubt Ausgabe von Debug-Informationen auf das erste Panel
 Debug = True
@@ -298,10 +299,13 @@ def Transform(Job):
 	return Matrix
 
 #Update der LED's im separaten Thread
-def UpdateLED(Speed, Jobs):
+def UpdateLED(Speed, Jobs, Render):
 	global Shadow_LED, hex_lp, Brightness_table
 	staticarray = ab.static_array_from_xlsx("controller_placement.xlsx")
-	while 1:
+	RenderFrame = np.zeros((24*fx.DRIVER_COUNT),dtype=int)
+	
+
+	while len(Jobs)>0:
 		Update = False		#Initialisierung des Update-Flags. Updates werden nur durchgeführt, wenn Änderungen erfolgen sollen
 		for Job_Index in range(len(Jobs)):		#Alle vorhandenen Jobs durchlaufen
 			try:	#Nur ausführen, wenn mindestens ein Job ansteht
@@ -385,13 +389,17 @@ def UpdateLED(Speed, Jobs):
 					if temp >63:
 						temp = 63
 					tlc5947[staticarray[x,y]] = Brightness_table[temp] #Read Brightness value from table and write to pin taken from array
-						
+					RenderFrame[staticarray[x,y]] = Brightness_table[temp] #Write to Renderframe	
 					
-			
-			#Schreiben & Verzögerung 
+		#fertigen RenderFrame in Render-Matrix ablegen
+		
+		Render= np.append(Render,RenderFrame)
+		#Schreiben & Verzögerung 
+		
 		if Update == True:		#Update der LED's erfolgt nur, wenn eine Änderung in der Helligkeit erfolgt
 			tlc5947.write()
 			time.sleep(Speed)
+		
 		
 		#Liste aufräumen. Fertige Elemente entfernen
 		Delete_list = []
@@ -409,17 +417,28 @@ def UpdateLED(Speed, Jobs):
 			for y in range(Shadow_LED.shape[1]):			#NP.Zeros verwenden
 				Shadow_LED[x,y]= 0
 				
-				
+	#Frame abspeichern
+	
+	try:
+		output = open('test.rnd', 'wb')
+		pickle.dump(Render, output)
+		output.close()
+	except Exception as e:
+		print(e)
+		time.sleep(1)
+		
+		
 class Update(threading.Thread):
-	def __init__(self,Speed, Jobs):
+	def __init__(self,Speed, Jobs, Render):
 		threading.Thread.__init__(self)
 		self.Speed = Speed
 		self.Jobs = Jobs
+		self.Render = Render
 		self.daemon = True
 		self.start()
 	
 	def run(self):
-		UpdateLED(self.Speed, self.Jobs)
+		UpdateLED(self.Speed, self.Jobs, self.Render)
 
 #Functions to apply rotation to a suiting array
 def rotate_hex_by_one(array):
