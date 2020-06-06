@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 #encoding: utf-8
 import os
 import time
@@ -17,7 +18,6 @@ def apply_pattern(filename):
 	global LED, pattern_selected, old_ircode, new_ircode
 	if pattern_selected != filename:
 		pattern_selected = filename
-	blank_display()
 	Render = 0
 	f=open(filename,'rb')
 	Render = pickle.load(f)
@@ -27,7 +27,7 @@ def apply_pattern(filename):
 	Form = np.shape(Render)
 	LengthFrame = Form[1]
 	NumberFrames =Form[0]
-	for FrameCount in range(0,NumberFrames):
+	for FrameCount in range(1,NumberFrames):
 		codeIR = lirc.nextcode()
 		if codeIR != []:
 			new_ircode = codeIR[0]
@@ -39,19 +39,18 @@ def apply_pattern(filename):
 		for FrameAdress in range(0,LengthFrame):
 			LED.tlc5947[FrameAdress]=Render[FrameCount,FrameAdress]
 		LED.tlc5947.write()
-	blank_display()
 	
 def act_on_code(code):
 	if code == "KEY_UP":
-		apply_pattern("test.rnd")
+		apply_pattern("/home/pi/hex_display/pattern1.rnd")
 	elif code == "KEY_DOWN":
-		apply_pattern("pattern3.rnd")
+		apply_pattern("/home/pi/hex_display/pattern3.rnd")
 	elif code == "KEY_LEFT":
-		apply_pattern("pattern4.rnd")
+		apply_pattern("/home/pi/hex_display/pattern4.rnd")
 	elif code == "KEY_RIGHT":
-		apply_pattern("pattern2.rnd")
+		apply_pattern("/home/pi/hex_display/pattern2.rnd")
 	elif code == "KEY_OK":
-		print(str(code))
+		apply_pattern("/home/pi/hex_display/default.rnd")
 	elif code == "KEY_MENU":
 		print(str(code))
 	elif code == "KEY_PLAYPAUSE":
@@ -70,8 +69,8 @@ if __name__ == '__main__':
 	
 	sockid=lirc.init("appleremote", blocking = False)
 	try:
-		apply_pattern("pattern0.rnd")
-		pattern_selected = ""
+		apply_pattern("/home/pi/hex_display/pattern0.rnd")
+		pattern_selected = "/home/pi/hex_display/default.rnd"
 	except Exception as e:
 		print(str(e.args))
 	while True:
