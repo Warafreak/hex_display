@@ -264,13 +264,26 @@ def main(win):
 def led_menu():
     selected_panel = 0
 
+curses.wrapper(main)
+
 sockid=lirc.init("appleremote", blocking = False)
 while True:
     codeIR = lirc.nextcode()
     if codeIR != []:
-        print(codeIR[0])
+        if codeIR[0] == "KEY_UP":
+            print(str(codeIR[0]))
+        elif codeIR[0] == "KEY_DOWN":
+            print(str(codeIR[0]))
+        elif codeIR[0] == "KEY_LEFT":
+            print(str(codeIR[0]))
+        elif codeIR[0] == "KEY_RIGHT":
+            print(str(codeIR[0]))
+        elif codeIR[0] == "KEY_OK":
+            print(str(codeIR[0]))
+        elif codeIR[0] == "KEY_MENU":
+            print(str(codeIR[0]))
+        elif codeIR[0] == "KEY_PLAYPAUSE":
+            print(str(codeIR[0]))
     time.sleep(0.05)                
-
-#curses.wrapper(main)
 
 #EOF
