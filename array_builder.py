@@ -73,5 +73,5 @@ def static_array_from_xlsx(file):
         hexagon = initiate_array(controller_info[i])
         static_array = insert_at_position(static_array, hexagon, controller_info[i, 3], controller_info[i, 4])
 
-    print(static_array)
+    #print(static_array)
     return static_array
